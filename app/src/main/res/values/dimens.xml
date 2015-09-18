@@ -5,5 +5,8 @@
     <dimen name="digital_text_size_round">50dp</dimen>
     <dimen name="digital_x_offset">25dp</dimen>
     <dimen name="digital_x_offset_round">40dp</dimen>
-    <dimen name="digital_y_offset">100dp</dimen>
+    <dimen name="digital_y_offset">80dp</dimen>
+    <!-- Date -->
+    <dimen name="digital_date_text_size">25dp</dimen>
+    <dimen name="digital_line_height">35dp</dimen>
 </resources>

@@ -30,11 +30,16 @@ import android.os.Handler;
 import android.os.Message;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
+import android.text.format.DateFormat;
 import android.text.format.Time;
 import android.view.SurfaceHolder;
 import android.view.WindowInsets;
 
 import java.lang.ref.WeakReference;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Locale;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
@@ -75,15 +80,31 @@ public class HelloFriendWatchFace extends CanvasWatchFaceService {
 
         boolean mRegisteredTimeZoneReceiver = false;
 
+        final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                mCalendar.setTimeZone(TimeZone.getDefault());
+                initFormats();
+                invalidate();
+            }
+        };
+
         Paint mBackgroundPaint;
         Paint mTextPaint;
+        Paint mDatePaint;
 
         boolean mAmbient;
 
         Time mTime;
 
+        Calendar mCalendar;
+        Date mDate;
+        SimpleDateFormat mDayOfWeekFormat;
+        java.text.DateFormat mDateFormat;
+
         float mXOffset;
         float mYOffset;
+        float mLineHeight;
 
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
@@ -105,6 +126,7 @@ public class HelloFriendWatchFace extends CanvasWatchFaceService {
                     .build());
             Resources resources = HelloFriendWatchFace.this.getResources();
             mYOffset = resources.getDimension(R.dimen.digital_y_offset);
+            mLineHeight = resources.getDimension(R.dimen.digital_line_height);
 
             mBackgroundPaint = new Paint();
             mBackgroundPaint.setColor(resources.getColor(R.color.digital_background));
@@ -112,7 +134,13 @@ public class HelloFriendWatchFace extends CanvasWatchFaceService {
             mTextPaint = new Paint();
             mTextPaint = createTextPaint(resources.getColor(R.color.digital_text));
 
+            mDatePaint = new Paint();
+            mDatePaint = createTextPaint(resources.getColor(R.color.digital_text));
+
             mTime = new Time();
+            mCalendar = Calendar.getInstance();
+            mDate = new Date();
+            initFormats();
         }
 
         @Override
@@ -140,6 +168,7 @@ public class HelloFriendWatchFace extends CanvasWatchFaceService {
                 // Update time zone in case it changed while we weren't visible.
                 mTime.clear(TimeZone.getDefault().getID());
                 mTime.setToNow();
+                mCalendar.setTimeZone(TimeZone.getDefault());
             } else {
                 unregisterReceiver();
             }
@@ -149,6 +178,13 @@ public class HelloFriendWatchFace extends CanvasWatchFaceService {
             updateTimer();
         }
 
+        private void initFormats() {
+            mDayOfWeekFormat = new SimpleDateFormat("EEEE", Locale.getDefault());
+            mDayOfWeekFormat.setCalendar(mCalendar);
+            mDateFormat = DateFormat.getDateFormat(HelloFriendWatchFace.this);
+            mDateFormat.setCalendar(mCalendar);
+        }
+
         private void registerReceiver() {
             if (mRegisteredTimeZoneReceiver) {
                 return;
@@ -156,6 +192,7 @@ public class HelloFriendWatchFace extends CanvasWatchFaceService {
             mRegisteredTimeZoneReceiver = true;
             IntentFilter filter = new IntentFilter(Intent.ACTION_TIMEZONE_CHANGED);
             HelloFriendWatchFace.this.registerReceiver(mTimeZoneReceiver, filter);
+            HelloFriendWatchFace.this.registerReceiver(mReceiver, filter);
         }
 
         private void unregisterReceiver() {
@@ -164,6 +201,7 @@ public class HelloFriendWatchFace extends CanvasWatchFaceService {
             }
             mRegisteredTimeZoneReceiver = false;
             HelloFriendWatchFace.this.unregisterReceiver(mTimeZoneReceiver);
+            HelloFriendWatchFace.this.unregisterReceiver(mReceiver);
         }
 
         @Override
@@ -177,8 +215,9 @@ public class HelloFriendWatchFace extends CanvasWatchFaceService {
                     ? R.dimen.digital_x_offset_round : R.dimen.digital_x_offset);
             float textSize = resources.getDimension(isRound
                     ? R.dimen.digital_text_size_round : R.dimen.digital_text_size);
-
+            float dateSize = resources.getDimension(R.dimen.digital_date_text_size);
             mTextPaint.setTextSize(textSize);
+            mDatePaint.setTextSize(dateSize);
         }
 
         @Override
@@ -200,6 +239,7 @@ public class HelloFriendWatchFace extends CanvasWatchFaceService {
                 mAmbient = inAmbientMode;
                 if (mLowBitAmbient) {
                     mTextPaint.setAntiAlias(!inAmbientMode);
+                    mDatePaint.setAntiAlias(!inAmbientMode);
                 }
                 invalidate();
             }
@@ -214,12 +254,21 @@ public class HelloFriendWatchFace extends CanvasWatchFaceService {
             // Draw the background.
             canvas.drawRect(0, 0, bounds.width(), bounds.height(), mBackgroundPaint);
 
-            // Draw H:MM in ambient mode or H:MM:SS in interactive mode.
+            // Draw H:MM
             mTime.setToNow();
             String text = mAmbient
                     ? String.format("%d:%02d", mTime.hour, mTime.minute)
                     : String.format("%d:%02d", mTime.hour, mTime.minute);
             canvas.drawText(text, mXOffset, mYOffset, mTextPaint);
+
+            // Day of week
+            canvas.drawText(
+                    mDayOfWeekFormat.format(mDate),
+                    mXOffset - 5, mYOffset + mLineHeight, mDatePaint);
+            // Date
+            canvas.drawText(
+                    mDateFormat.format(mDate),
+                    mXOffset + 10, mYOffset + mLineHeight * 2, mDatePaint);
         }
 
         /**
