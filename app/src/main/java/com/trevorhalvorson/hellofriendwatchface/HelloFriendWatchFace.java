@@ -268,7 +268,7 @@ public class HelloFriendWatchFace extends CanvasWatchFaceService {
             // Date
             canvas.drawText(
                     mDateFormat.format(mDate),
-                    mXOffset + 10, mYOffset + mLineHeight * 2, mDatePaint);
+                    mXOffset + 5, mYOffset + mLineHeight * 2, mDatePaint);
         }
 
         /**

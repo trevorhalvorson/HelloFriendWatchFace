@@ -3,7 +3,7 @@
     <!-- Time -->
     <dimen name="digital_text_size">50dp</dimen>
     <dimen name="digital_text_size_round">50dp</dimen>
-    <dimen name="digital_x_offset">25dp</dimen>
+    <dimen name="digital_x_offset">30dp</dimen>
     <dimen name="digital_x_offset_round">40dp</dimen>
     <dimen name="digital_y_offset">80dp</dimen>
     <!-- Date -->
