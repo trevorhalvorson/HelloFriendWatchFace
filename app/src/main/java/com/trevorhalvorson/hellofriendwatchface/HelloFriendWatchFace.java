@@ -22,6 +22,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Resources;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Typeface;
@@ -102,15 +103,15 @@ public class HelloFriendWatchFace extends CanvasWatchFaceService {
         SimpleDateFormat mDayOfWeekFormat;
         java.text.DateFormat mDateFormat;
 
-        float mXOffset;
-        float mYOffset;
-        float mLineHeight;
+        float mTimeOffset;
+        float mDateOffset;
 
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
          * disable anti-aliasing in ambient mode.
          */
         boolean mLowBitAmbient;
+        boolean mBurnInProtection;
 
         @Override
         public void onCreate(SurfaceHolder holder) {
@@ -125,8 +126,8 @@ public class HelloFriendWatchFace extends CanvasWatchFaceService {
                     .setShowSystemUiTime(false)
                     .build());
             Resources resources = HelloFriendWatchFace.this.getResources();
-            mYOffset = resources.getDimension(R.dimen.digital_y_offset);
-            mLineHeight = resources.getDimension(R.dimen.digital_line_height);
+            mTimeOffset = resources.getDimension(R.dimen.digital_time_y_offset);
+            mDateOffset = resources.getDimension(R.dimen.digital_date_y_offset);
 
             mBackgroundPaint = new Paint();
             mBackgroundPaint.setColor(resources.getColor(R.color.digital_background));
@@ -147,7 +148,6 @@ public class HelloFriendWatchFace extends CanvasWatchFaceService {
         public void onDestroy() {
             mUpdateTimeHandler.removeMessages(MSG_UPDATE_TIME);
             super.onDestroy();
-            /*YOU ARE NOT ALONE*/
         }
 
         private Paint createTextPaint(int textColor) {
@@ -211,8 +211,6 @@ public class HelloFriendWatchFace extends CanvasWatchFaceService {
             // Load resources that have alternate values for round watches.
             Resources resources = HelloFriendWatchFace.this.getResources();
             boolean isRound = insets.isRound();
-            mXOffset = resources.getDimension(isRound
-                    ? R.dimen.digital_x_offset_round : R.dimen.digital_x_offset);
             float textSize = resources.getDimension(isRound
                     ? R.dimen.digital_text_size_round : R.dimen.digital_text_size);
             float dateSize = resources.getDimension(R.dimen.digital_date_text_size);
@@ -223,6 +221,7 @@ public class HelloFriendWatchFace extends CanvasWatchFaceService {
         @Override
         public void onPropertiesChanged(Bundle properties) {
             super.onPropertiesChanged(properties);
+            mBurnInProtection = properties.getBoolean(PROPERTY_BURN_IN_PROTECTION, false);
             mLowBitAmbient = properties.getBoolean(PROPERTY_LOW_BIT_AMBIENT, false);
         }
 
@@ -237,7 +236,7 @@ public class HelloFriendWatchFace extends CanvasWatchFaceService {
             super.onAmbientModeChanged(inAmbientMode);
             if (mAmbient != inAmbientMode) {
                 mAmbient = inAmbientMode;
-                if (mLowBitAmbient) {
+                if (mBurnInProtection || mLowBitAmbient) {
                     mTextPaint.setAntiAlias(!inAmbientMode);
                     mDatePaint.setAntiAlias(!inAmbientMode);
                 }
@@ -254,21 +253,31 @@ public class HelloFriendWatchFace extends CanvasWatchFaceService {
             // Draw the background.
             canvas.drawRect(0, 0, bounds.width(), bounds.height(), mBackgroundPaint);
 
-            // Draw H:MM
-            mTime.setToNow();
-            String text = mAmbient
-                    ? String.format("%d:%02d", mTime.hour, mTime.minute)
-                    : String.format("%d:%02d", mTime.hour, mTime.minute);
-            canvas.drawText(text, mXOffset, mYOffset, mTextPaint);
+            boolean ambientMode = isInAmbientMode();
+            if (!ambientMode) {
+                // Date MM/DD/YYYY
+                String dateText = mDateFormat.format(mDate);
+                float dateXOffset = computeXOffset(dateText, mDatePaint, bounds);
+                canvas.drawText(
+                        dateText,
+                        dateXOffset, mDateOffset, mDatePaint);
 
-            // Day of week
-            canvas.drawText(
-                    mDayOfWeekFormat.format(mDate),
-                    mXOffset - 5, mYOffset + mLineHeight, mDatePaint);
-            // Date
-            canvas.drawText(
-                    mDateFormat.format(mDate),
-                    mXOffset + 5, mYOffset + mLineHeight * 2, mDatePaint);
+                mTextPaint.setColor(getResources().getColor(R.color.digital_text));
+            } else {
+                mTextPaint.setColor(Color.WHITE);
+            }
+
+            // Time HH:MM
+            mTime.setToNow();
+            String text = String.format("%d:%02d", mTime.hour, mTime.minute);
+            float timeXOffset = computeXOffset(text, mTextPaint, bounds);
+            canvas.drawText(text, timeXOffset, mTimeOffset, mTextPaint);
+        }
+
+        private float computeXOffset(String text, Paint paint, Rect watchBounds) {
+            float centerX = watchBounds.exactCenterX();
+            float timeLength = paint.measureText(text);
+            return centerX - (timeLength / 2.0f);
         }
 
         /**
